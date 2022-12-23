@@ -18,6 +18,7 @@ class Config:
 @dataclass
 class LocalConfig(Config):
   PROJ_RELOAD: bool = True
+  # "postgresql://username:password@localhost:portnum/dbname"
   DB_URL: str = "postgresql://postgres:123@localhost:5432/notification_api"
   TRUSTED_HOSTS=["*"]
   ALLOW_SITE = ["*"]

@@ -9,7 +9,7 @@ import sqlalchemy.exc
 
 # from jwt.exceptions import ExpiredSignatureError, DecodeError
 from jwt.exceptions import PyJWTError
-# from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse
 
 from starlette.requests import Request
 from starlette.datastructures import URL, Headers
@@ -54,11 +54,11 @@ class AccessControl:
     request=Request(scope = scope)
     headers=Headers(scope = scope)
 
-    # 요청 들어온 시간 체크용
-    request.state.reg_time = D.datetime()
-    print(D.datetime())
-    print(D.date())
-    print(D.date_num())
+    # # 요청 들어온 시간 체크용
+    # request.state.reg_time = D.datetime()
+    # print(D.datetime())
+    # print(D.date())
+    # print(D.date_num())
 
     request.state.start=time.time()
     # 핸들링 안되는 error -> inspect
@@ -66,28 +66,60 @@ class AccessControl:
     # token decode한 내용 -> user
     request.state.user = None
     request.state.is_admin_access = None
+
+    ip_from = request.headers["x-forwarded-for"] if "x-forwarded-for" in request.headers.keys() else None
+
+    if await self.url_pattern_check(request.url.path, self.except_path_regex) or request.url.path in self.except_path_list:
+      return await self.app(scope, receive, send)
+
+    if request.url.path.startswith("/api"):
+      # api 인경우 헤더로 토큰 검사
+      if "Authorization" in request.headers.keys():
+        request.state.user = await self.token_decode(access_token=request.headers.get("Authorization"))
+        # 토큰 없음
+      else:
+        if "Authorization" not in request.headers.keys():
+          response = JSONResponse(status_code=401, content=dict(msg="AUTHORIZATION_REQUIRED"))
+          return await response(scope, receive, send)
+    else:
+      # 템플릿 렌더링인 경우 쿠키에서 토큰 검사
+      print(request.cookies)
+      request.cookies["Authorization"] = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OSwiZW1haWwiOiI0QGdtYWlsLmNvbSIsIm5hbWUiOm51bGwsInBob25lX251bWJlciI6bnVsbCwicHJvZmlsZV9pbWciOm51bGwsInNuc190eXBlIjpudWxsfQ.azXynQ_kPQpQ9ztsfHlG3uxklpOV0zj_9wf7ntjAQLs"
+      
+      if "Authorization" not in request.cookies.keys():
+        response = JSONResponse(status_code=401, content=dict(msg="AUTHORIZATION_REQUIRED"))
+        return await response(scope, receive, send)
+
+      request.state.user = await self.token_decode(access_token=request.cookies.get("Authorization"))
+    
+    
+    request.state.req_time = D.datetime()
+    print(D.datetime())
+    print(D.date())
+    print(D.date_num())
+
     print(request.cookies)
     print(headers)
     res=await self.app(scope, receive, send)
     return res
 
 
-# 미들웨어 2
-  # @staticmethod
-  # async def url_pattern_check(path, pattern):
-  #   result = re.match(pattern, path)
-  #   if result:
-  #     return True
-  #   return False
 
-  # @staticmethod
-  # async def token_decode(access_token):
-  #   try:
-  #     access_token = access_token.replace("Bearer", "")
-  #     payload = jwt.decode(access_token, key=consts.JWT_SECRET, algorithms=[consts.JWT_ALGORITHM])
-  #   except PyJWTError as e:
-  #     print(e)
-  #   return payload
+  @staticmethod
+  async def url_pattern_check(path, pattern):
+    result = re.match(pattern, path)
+    if result:
+      return True
+    return False
+
+  @staticmethod
+  async def token_decode(access_token):
+    try:
+      access_token = access_token.replace("Bearer ", "")
+      payload = jwt.decode(access_token, key=consts.JWT_SECRET, algorithms=[consts.JWT_ALGORITHM])
+    except PyJWTError as e:
+      print(e)
+    return payload
 
 
 

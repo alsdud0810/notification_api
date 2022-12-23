@@ -41,7 +41,8 @@ def create_app():
 
   # 라우터 정의
   app.include_router(index.router)
-  app.include_router(auth.router, tags=["Authentication"])
+  # app.include_router(auth.router, tags=["Authentication"])
+  app.include_router(auth.router, tags=["Authentication"], prefix="/api")
 
   return app
 
